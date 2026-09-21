@@ -1,0 +1,26 @@
+## Interface: 11509
+## Title: BlackoutUI
+## Notes: A modern square blackout UI replacement for WoW Classic.
+## Author: Hunter
+## Version: 1.0.0
+## SavedVariables: BlackoutUIDB
+
+Core\Core.lua
+Core\Movers.lua
+
+Modules\PlayerFrame.lua
+Modules\TargetFrame.lua
+Modules\TargetOfTarget.lua
+Modules\PetFrame.lua
+Modules\PartyFrames.lua
+Modules\RaidFrames.lua
+Modules\CastBars.lua
+Modules\Auras.lua
+Modules\ActionBars.lua
+Modules\StatusBar.lua
+Modules\UtilityBar.lua
+Modules\ClassBars.lua
+Modules\SpecialActions.lua
+Modules\Minimap.lua
+Modules\BlizzardUI.lua
+Modules\Config.lua
