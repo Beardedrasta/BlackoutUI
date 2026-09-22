@@ -24,6 +24,10 @@ local DEFAULTS = {
     spacing = 4,
     scale = 1.0,
     showEmptySlots = true,
+    sortMode = "BAG",
+    showJunkMarker = true,
+    showBagTypeMarker = true,
+    filter = "ALL",
 }
 
 local QUALITY_COLORS = {
@@ -266,18 +270,68 @@ SpaceText:SetPoint("RIGHT", Close, "LEFT", -10, 0)
 SpaceText:SetTextColor(0.60, 0.62, 0.65, 1)
 
 ------------------------------------------------------------
--- MONEY
+-- BOTTOM INFORMATION
 ------------------------------------------------------------
 
-local MoneyText =
-    Frame:CreateFontString(
+local BottomBar =
+    CreateFrame(
+        "Frame",
+        nil,
+        Frame,
+        "BackdropTemplate"
+    )
+
+BottomBar:SetHeight(30)
+BottomBar:SetPoint("BOTTOMLEFT", Frame, "BOTTOMLEFT", 1, 1)
+BottomBar:SetPoint("BOTTOMRIGHT", Frame, "BOTTOMRIGHT", -1, 1)
+
+BottomBar:SetBackdrop({
+    bgFile = "Interface\\Buttons\\WHITE8x8",
+})
+
+BottomBar:SetBackdropColor(0.02, 0.02, 0.02, 1)
+
+local SlotSummary =
+    BottomBar:CreateFontString(
         nil,
         "OVERLAY",
         "GameFontNormalSmall"
     )
 
-MoneyText:SetPoint("BOTTOMRIGHT", Frame, "BOTTOMRIGHT", -10, 10)
+SlotSummary:SetPoint("LEFT", BottomBar, "LEFT", 9, 0)
+SlotSummary:SetWidth(120)
+SlotSummary:SetJustifyH("LEFT")
+SlotSummary:SetTextColor(0.62, 0.64, 0.67, 1)
+
+local ViewSummary =
+    BottomBar:CreateFontString(
+        nil,
+        "OVERLAY",
+        "GameFontNormalSmall"
+    )
+
+ViewSummary:SetPoint("CENTER", BottomBar, "CENTER", 0, 0)
+ViewSummary:SetWidth(90)
+ViewSummary:SetJustifyH("CENTER")
+ViewSummary:SetTextColor(0.22, 0.66, 0.92, 1)
+
+------------------------------------------------------------
+-- MONEY
+------------------------------------------------------------
+
+local MoneyText =
+    BottomBar:CreateFontString(
+        nil,
+        "OVERLAY",
+        "GameFontNormalSmall"
+    )
+
+MoneyText:SetPoint("RIGHT", BottomBar, "RIGHT", -9, 0)
+MoneyText:SetSize(150, 20)
+MoneyText:SetJustifyH("RIGHT")
+MoneyText:SetJustifyV("MIDDLE")
 MoneyText:SetTextColor(0.86, 0.88, 0.90, 1)
+MoneyText:SetDrawLayer("OVERLAY", 7)
 
 local function FormatMoney(copper)
     copper = copper or 0
@@ -287,7 +341,7 @@ local function FormatMoney(copper)
     local copperOnly = copper % 100
 
     return string.format(
-        "|cffffd700%dg|r  |cffc7c7cf%ds|r  |cffb87333%dc|r",
+        "|cffffd700%dg|r |cffc7c7cf%ds|r |cffb87333%dc|r",
         gold,
         silver,
         copperOnly
@@ -299,6 +353,18 @@ end
 ------------------------------------------------------------
 
 local Buttons = {}
+
+local SpecializedLabel =
+    Frame:CreateFontString(
+        nil,
+        "OVERLAY",
+        "GameFontNormalSmall"
+    )
+
+SpecializedLabel:SetText("SPECIALIZED")
+SpecializedLabel:SetTextColor(0.22, 0.66, 0.92, 1)
+SpecializedLabel:SetJustifyH("LEFT")
+SpecializedLabel:Hide()
 
 local function CreateItemButton(index)
     local button =
@@ -344,6 +410,19 @@ local function CreateItemButton(index)
     junk:SetColorTexture(0.55, 0.55, 0.55, 0.95)
     junk:Hide()
     button.Junk = junk
+
+    local junkText =
+        button:CreateFontString(
+            nil,
+            "OVERLAY",
+            "GameFontNormalSmall"
+        )
+
+    junkText:SetPoint("TOPLEFT", button, "TOPLEFT", 3, -2)
+    junkText:SetText("J")
+    junkText:SetTextColor(0.72, 0.72, 0.72, 1)
+    junkText:Hide()
+    button.JunkText = junkText
 
     local bagType =
         button:CreateFontString(
@@ -476,6 +555,52 @@ local function GetBagTypeLabel(family)
 end
 
 ------------------------------------------------------------
+-- DISPLAY FILTERS
+------------------------------------------------------------
+
+local function GetItemCategory(info)
+    if not info or not info.itemID then
+        return "EMPTY"
+    end
+
+    local _, _, quality, _, _, itemType =
+        _G.GetItemInfo(info.itemID)
+
+    if quality == 0 then
+        return "JUNK"
+    end
+
+    if itemType == "Armor"
+        or itemType == "Weapon" then
+        return "GEAR"
+    end
+
+    if itemType == "Consumable" then
+        return "CONSUMABLE"
+    end
+
+    if itemType == "Quest" then
+        return "QUEST"
+    end
+
+    if itemType == "Trade Goods"
+        or itemType == "Reagent" then
+        return "TRADE"
+    end
+
+    return "OTHER"
+end
+
+local function PassesFilter(info, filter)
+    if not filter
+        or filter == "ALL" then
+        return true
+    end
+
+    return GetItemCategory(info) == filter
+end
+
+------------------------------------------------------------
 -- SEARCH
 ------------------------------------------------------------
 
@@ -520,6 +645,126 @@ end)
 SearchBox:SetScript("OnEnterPressed", function(self)
     self:ClearFocus()
 end)
+
+local FilterBar =
+    CreateFrame(
+        "Frame",
+        nil,
+        Frame
+    )
+
+FilterBar:SetHeight(22)
+FilterBar:SetPoint("TOPLEFT", Frame, "TOPLEFT", 10, -70)
+FilterBar:SetPoint("TOPRIGHT", Frame, "TOPRIGHT", -10, -70)
+
+local FILTERS = {
+    { key = "ALL",        text = "ALL" },
+    { key = "GEAR",       text = "GEAR" },
+    { key = "CONSUMABLE", text = "USE" },
+    { key = "QUEST",      text = "QUEST" },
+    { key = "TRADE",      text = "TRADE" },
+    { key = "JUNK",       text = "JUNK" },
+}
+
+local FilterButtons = {}
+
+local function RefreshFilterButtons()
+    local db = GetConfig()
+
+    for key, button in pairs(FilterButtons) do
+        if key == db.filter then
+            button:SetBackdropBorderColor(
+                0.22, 0.66, 0.92, 1
+            )
+            button.Text:SetTextColor(
+                0.22, 0.66, 0.92, 1
+            )
+        else
+            button:SetBackdropBorderColor(
+                0.15, 0.16, 0.17, 1
+            )
+            button.Text:SetTextColor(
+                0.68, 0.70, 0.72, 1
+            )
+        end
+    end
+end
+
+for index, data in ipairs(FILTERS) do
+    local b =
+        CreateFrame(
+            "Button",
+            nil,
+            FilterBar,
+            "BackdropTemplate"
+        )
+
+    b:SetHeight(20)
+    b:SetWidth(48)
+
+    if index == 1 then
+        b:SetPoint(
+            "LEFT",
+            FilterBar,
+            "LEFT",
+            0,
+            0
+        )
+    else
+        b:SetPoint(
+            "LEFT",
+            FILTERS[index - 1].button,
+            "RIGHT",
+            3,
+            0
+        )
+    end
+
+    b:SetBackdrop({
+        bgFile = "Interface\\Buttons\\WHITE8x8",
+        edgeFile = "Interface\\Buttons\\WHITE8x8",
+        edgeSize = 1,
+    })
+
+    b:SetBackdropColor(0.02, 0.02, 0.02, 1)
+
+    local text =
+        b:CreateFontString(
+            nil,
+            "OVERLAY",
+            "GameFontNormalSmall"
+        )
+
+    text:SetPoint("CENTER")
+    text:SetText(data.text)
+    b.Text = text
+
+    b:SetScript("OnClick", function()
+        GetConfig().filter = data.key
+        RefreshFilterButtons()
+
+        if Bags.Refresh then
+            Bags.Refresh()
+        end
+    end)
+
+    b:SetScript("OnEnter", function(self)
+        if GetConfig().filter ~= data.key then
+            self:SetBackdropBorderColor(
+                0.22, 0.66, 0.92, 0.65
+            )
+        end
+    end)
+
+    b:SetScript("OnLeave", function()
+        RefreshFilterButtons()
+    end)
+
+    data.button = b
+    FilterButtons[data.key] = b
+end
+
+RefreshFilterButtons()
 
 local function GetSearchText()
     return string.lower(
@@ -577,9 +822,20 @@ local function Refresh()
             end
 
             if info or db.showEmptySlots then
-                local include = true
+                local include =
+                    PassesFilter(
+                        info,
+                        db.filter
+                    )
 
-                if search ~= "" then
+                -- Empty slots are only useful in the ALL view.
+                if not info
+                    and db.filter ~= "ALL" then
+                    include = false
+                end
+
+                if include
+                    and search ~= "" then
                     include = false
 
                     if info and info.itemID then
@@ -638,6 +894,22 @@ local function Refresh()
     local specializedRows =
         math.ceil(specializedSlotCount / columns)
 
+    if specializedSlotCount > 0
+        and (db.filter == "ALL" or db.filter == nil)
+        and GetSearchText() == "" then
+        SpecializedLabel:ClearAllPoints()
+        SpecializedLabel:SetPoint(
+            "TOPLEFT",
+            Frame,
+            "TOPLEFT",
+            10,
+            -(100 + (normalRows * (iconSize + spacing)))
+        )
+        SpecializedLabel:Show()
+    else
+        SpecializedLabel:Hide()
+    end
+
     local rows =
         math.max(
             1,
@@ -655,7 +927,14 @@ local function Refresh()
     Frame:SetScale(db.scale or 1)
     Frame:SetSize(
         contentWidth + (padding * 2),
-        64 + 10 + contentHeight + 34
+        92 + 10 + contentHeight + 34
+        + (
+            specializedSlotCount > 0
+            and (db.filter == "ALL" or db.filter == nil)
+            and GetSearchText() == ""
+            and 14
+            or 0
+        )
     )
 
     if db.point then
@@ -732,18 +1011,28 @@ local function Refresh()
                 zeroIndex / columns
             )
 
+        local sectionOffset = 0
+
+        if entry.family ~= 0
+            and specializedSlotCount > 0
+            and (db.filter == "ALL" or db.filter == nil)
+            and GetSearchText() == "" then
+            sectionOffset = 14
+        end
+
         button:SetPoint(
             "TOPLEFT",
             Frame,
             "TOPLEFT",
             padding + (column * (iconSize + spacing)),
-            -(74 + (row * (iconSize + spacing)))
+            -(102 + sectionOffset + (row * (iconSize + spacing)))
         )
 
         local bagLabel =
             GetBagTypeLabel(entry.family)
 
-        if bagLabel then
+        if bagLabel
+            and db.showBagTypeMarker ~= false then
             button.BagType:SetText(
                 bagLabel == "AMMO" and "A" or "S"
             )
@@ -787,14 +1076,18 @@ local function Refresh()
                 1
             )
 
-            button.Junk:SetShown(
+            local isJunk =
                 info.quality == 0
                 and not info.noValue
-            )
+                and db.showJunkMarker ~= false
+
+            button.Junk:SetShown(isJunk)
+            button.JunkText:SetShown(isJunk)
         else
             button.Icon:SetTexture(nil)
             button.Count:SetText("")
             button.Junk:Hide()
+            button.JunkText:Hide()
 
             if GetBagTypeLabel(entry.family) then
                 button:SetBackdropBorderColor(
@@ -820,15 +1113,42 @@ local function Refresh()
         Buttons[index]:Hide()
     end
 
-    SpaceText:SetFormattedText(
-        "%d / %d",
-        usedSlots,
+    SpaceText:SetText("")
+
+    local freeSlots =
+        math.max(
+            0,
+            totalSlots - usedSlots
+        )
+
+    SlotSummary:SetFormattedText(
+        "%d free / %d",
+        freeSlots,
         totalSlots
     )
 
+    local filterName =
+        db.filter or "ALL"
+
+    if filterName == "CONSUMABLE" then
+        filterName = "USE"
+    end
+
+    local searchText = GetSearchText()
+
+    if searchText ~= "" then
+        ViewSummary:SetText(
+            filterName .. "  •  SEARCH"
+        )
+    else
+        ViewSummary:SetText(filterName)
+    end
+
+    local currentMoney = GetMoney() or 0
     MoneyText:SetText(
-        FormatMoney(GetMoney())
+        FormatMoney(currentMoney)
     )
+    MoneyText:Show()
 end
 
 Bags.Refresh = Refresh
@@ -880,7 +1200,16 @@ function Bags:Toggle()
 end
 
 function Bags:ApplyConfig()
-    Refresh()
+    local db = GetConfig()
+
+    if db.enabled == false then
+        Frame:Hide()
+        return
+    end
+
+    if Frame:IsShown() then
+        Refresh()
+    end
 end
 
 ------------------------------------------------------------

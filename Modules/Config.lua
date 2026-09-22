@@ -73,6 +73,43 @@ local function EnsureConfig()
         xp.dashboardScale = 1.00
     end
 
+    BlackoutUIDB.Config.Tooltips =
+        BlackoutUIDB.Config.Tooltips
+        or {}
+
+    local tooltipDefaults = {
+        enabled = true,
+        scale = 1.00,
+        opacity = 0.96,
+        classColorBorder = true,
+        itemQualityBorder = true,
+    }
+
+    for key, value in pairs(tooltipDefaults) do
+        if BlackoutUIDB.Config.Tooltips[key] == nil then
+            BlackoutUIDB.Config.Tooltips[key] = value
+        end
+    end
+
+    BlackoutUIDB.Config.Bags =
+        BlackoutUIDB.Config.Bags
+        or {}
+
+    local bagDefaults = {
+        enabled = true,
+        columns = 10,
+        iconSize = 36,
+        spacing = 4,
+        scale = 1.00,
+        showEmptySlots = true,
+    }
+
+    for key, value in pairs(bagDefaults) do
+        if BlackoutUIDB.Config.Bags[key] == nil then
+            BlackoutUIDB.Config.Bags[key] = value
+        end
+    end
+
     BlackoutUIDB.Config.ActionBars =
         BlackoutUIDB.Config.ActionBars
         or {}
@@ -405,7 +442,6 @@ local function EnsureConfig()
     if minimap.showCoordinates == nil then minimap.showCoordinates = true end
     if minimap.showZoneText == nil then minimap.showZoneText = true end
     if minimap.showClock == nil then minimap.showClock = true end
-    if minimap.controlsOnHover == nil then minimap.controlsOnHover = true end
 
     return BlackoutUIDB.Config
 end
@@ -3313,17 +3349,8 @@ MinimapControls.clock = CreateCheckbox(
     end
 )
 
-MinimapControls.controlsOnHover = CreateCheckbox(
-    MinimapPage, "Show Controls Only On Hover", 22, -230,
-    function() return MinimapConfig().controlsOnHover end,
-    function(value)
-        MinimapConfig().controlsOnHover = value
-        ApplyMinimapConfig()
-    end
-)
-
 MinimapControls.size = CreateStepper(
-    MinimapPage, "Minimap Size", 22, -310, 420,
+    MinimapPage, "Minimap Size", 22, -278, 420,
     function() return MinimapConfig().size end,
     function(value)
         MinimapConfig().size = value
@@ -3334,7 +3361,7 @@ MinimapControls.size = CreateStepper(
 )
 
 MinimapControls.scale = CreateStepper(
-    MinimapPage, "Minimap Scale", 22, -342, 420,
+    MinimapPage, "Minimap Scale", 22, -310, 420,
     function() return MinimapConfig().scale end,
     function(value)
         MinimapConfig().scale = value
@@ -3352,6 +3379,193 @@ minimapNote:SetText(
     "Mouse wheel over the minimap zooms in/out. Position is handled through /bui move. Tracking remains Blizzard-functional."
 )
 minimapNote:SetTextColor(unpack(MUTED))
+
+--------------------------------------------------
+-- TOOLTIPS PAGE
+--------------------------------------------------
+
+local TooltipsPage = CreatePage("tooltips", "TOOLTIPS")
+local TooltipControls = {}
+
+local function TooltipConfig()
+    return EnsureConfig().Tooltips
+end
+
+local function ApplyTooltipConfig()
+    if BlackoutUI.Tooltips
+        and BlackoutUI.Tooltips.ApplyConfig then
+        BlackoutUI.Tooltips:ApplyConfig()
+    end
+end
+
+local tooltipIntro = BlackoutUI:CreateFont(TooltipsPage, 9)
+tooltipIntro:SetPoint("TOPLEFT", TooltipsPage, "TOPLEFT", 22, -42)
+tooltipIntro:SetWidth(470)
+tooltipIntro:SetJustifyH("LEFT")
+tooltipIntro:SetText(
+    "Blackout styling for item, spell, unit and comparison tooltips."
+)
+tooltipIntro:SetTextColor(unpack(MUTED))
+
+TooltipControls.enabled = CreateCheckbox(
+    TooltipsPage, "Enable Blackout Tooltips", 22, -92,
+    function() return TooltipConfig().enabled end,
+    function(value)
+        TooltipConfig().enabled = value
+        ApplyTooltipConfig()
+    end
+)
+
+TooltipControls.classBorder = CreateCheckbox(
+    TooltipsPage, "Class-Colored Player Borders", 22, -124,
+    function() return TooltipConfig().classColorBorder end,
+    function(value)
+        TooltipConfig().classColorBorder = value
+        ApplyTooltipConfig()
+    end
+)
+
+TooltipControls.qualityBorder = CreateCheckbox(
+    TooltipsPage, "Item Rarity Borders", 22, -156,
+    function() return TooltipConfig().itemQualityBorder end,
+    function(value)
+        TooltipConfig().itemQualityBorder = value
+        ApplyTooltipConfig()
+    end
+)
+
+TooltipControls.scale = CreateStepper(
+    TooltipsPage, "Tooltip Scale", 22, -204, 420,
+    function() return TooltipConfig().scale end,
+    function(value)
+        TooltipConfig().scale = value
+        ApplyTooltipConfig()
+    end,
+    0.05, 0.50, 1.50,
+    function(value) return string.format("%.2f", value) end
+)
+
+TooltipControls.opacity = CreateStepper(
+    TooltipsPage, "Background Opacity", 22, -236, 420,
+    function() return TooltipConfig().opacity end,
+    function(value)
+        TooltipConfig().opacity = value
+        ApplyTooltipConfig()
+    end,
+    0.05, 0.20, 1.00,
+    function(value) return string.format("%d%%", math.floor(value * 100 + 0.5)) end
+)
+
+local tooltipNote = BlackoutUI:CreateFont(TooltipsPage, 8)
+tooltipNote:SetPoint("TOPLEFT", TooltipsPage, "TOPLEFT", 22, -286)
+tooltipNote:SetWidth(470)
+tooltipNote:SetJustifyH("LEFT")
+tooltipNote:SetText(
+    "Item borders use item quality. Player tooltips can use the hovered player's class color. Other tooltips retain the Blackout blue accent."
+)
+tooltipNote:SetTextColor(unpack(MUTED))
+
+TooltipsPage:SetHeight(360)
+
+--------------------------------------------------
+-- BAGS PAGE
+--------------------------------------------------
+
+local BagsPage = CreatePage("bags", "BAGS")
+local BagsControls = {}
+
+local function BagsConfig()
+    return EnsureConfig().Bags
+end
+
+local function ApplyBagsConfig()
+    if BlackoutUI.Bags
+        and BlackoutUI.Bags.ApplyConfig then
+        BlackoutUI.Bags:ApplyConfig()
+    end
+end
+
+local bagsIntro = BlackoutUI:CreateFont(BagsPage, 9)
+bagsIntro:SetPoint("TOPLEFT", BagsPage, "TOPLEFT", 22, -42)
+bagsIntro:SetWidth(470)
+bagsIntro:SetJustifyH("LEFT")
+bagsIntro:SetText(
+    "Combined inventory settings. Normal bags flow together; specialized bags such as ammo containers remain grouped at the end."
+)
+bagsIntro:SetTextColor(unpack(MUTED))
+
+BagsControls.enabled = CreateCheckbox(
+    BagsPage, "Enable Blackout Inventory", 22, -92,
+    function() return BagsConfig().enabled end,
+    function(value)
+        BagsConfig().enabled = value
+        ApplyBagsConfig()
+    end
+)
+
+BagsControls.empty = CreateCheckbox(
+    BagsPage, "Show Empty Slots", 22, -124,
+    function() return BagsConfig().showEmptySlots end,
+    function(value)
+        BagsConfig().showEmptySlots = value
+        ApplyBagsConfig()
+    end
+)
+
+BagsControls.columns = CreateStepper(
+    BagsPage, "Slots Per Row", 22, -172, 420,
+    function() return BagsConfig().columns end,
+    function(value)
+        BagsConfig().columns = value
+        ApplyBagsConfig()
+    end,
+    1, 4, 20,
+    function(value) return string.format("%d", value) end
+)
+
+BagsControls.iconSize = CreateStepper(
+    BagsPage, "Slot Size", 22, -204, 420,
+    function() return BagsConfig().iconSize end,
+    function(value)
+        BagsConfig().iconSize = value
+        ApplyBagsConfig()
+    end,
+    1, 24, 64,
+    function(value) return string.format("%d px", value) end
+)
+
+BagsControls.spacing = CreateStepper(
+    BagsPage, "Slot Spacing", 22, -236, 420,
+    function() return BagsConfig().spacing end,
+    function(value)
+        BagsConfig().spacing = value
+        ApplyBagsConfig()
+    end,
+    1, 0, 12,
+    function(value) return string.format("%d px", value) end
+)
+
+BagsControls.scale = CreateStepper(
+    BagsPage, "Inventory Scale", 22, -268, 420,
+    function() return BagsConfig().scale end,
+    function(value)
+        BagsConfig().scale = value
+        ApplyBagsConfig()
+    end,
+    0.05, 0.50, 2.00,
+    function(value) return string.format("%.2f", value) end
+)
+
+local bagsNote = BlackoutUI:CreateFont(BagsPage, 8)
+bagsNote:SetPoint("TOPLEFT", BagsPage, "TOPLEFT", 22, -318)
+bagsNote:SetWidth(470)
+bagsNote:SetJustifyH("LEFT")
+bagsNote:SetText(
+    "B or the normal backpack button opens the combined inventory. /buibags can also be used for testing."
+)
+bagsNote:SetTextColor(unpack(MUTED))
+
+BagsPage:SetHeight(390)
 
 --------------------------------------------------
 -- ACTION BARS PAGE
@@ -4588,6 +4802,8 @@ local nav = {
     { "general",    "GENERAL" },
     { "unitframes", "UNIT FRAMES" },
     { "minimap",    "MINIMAP" },
+    { "tooltips",   "TOOLTIPS" },
+    { "bags",       "BAGS" },
     { "actionbars", "ACTION BARS" },
     { "xp",         "XP TRACKER" },
     { "classbars",  "CLASS BARS" },
@@ -4615,6 +4831,20 @@ local function RefreshConfig()
 
     for _, control
     in pairs(MinimapControls) do
+        if control.Refresh then
+            control:Refresh()
+        end
+    end
+
+    for _, control
+    in pairs(TooltipControls) do
+        if control.Refresh then
+            control:Refresh()
+        end
+    end
+
+    for _, control
+    in pairs(BagsControls) do
         if control.Refresh then
             control:Refresh()
         end
