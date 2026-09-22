@@ -47,14 +47,6 @@ local function EnsureMinimapDB()
         db.square = true
     end
 
-    if db.hideClock == nil then
-        db.hideClock = true
-    end
-
-    if db.hideZoneText == nil then
-        db.hideZoneText = false
-    end
-
     if db.positionX == nil then
         db.positionX = -30
     end
@@ -66,11 +58,11 @@ local function EnsureMinimapDB()
     if db.showCoordinates == nil then db.showCoordinates = true end
     if db.showClock == nil then db.showClock = true end
     if db.showZoneText == nil then db.showZoneText = true end
-    if db.showTracking == nil then db.showTracking = true end
     if db.hideZoomButtons == nil then db.hideZoomButtons = true end
     if db.hideCalendarButton == nil then db.hideCalendarButton = true end
     if db.hideWorldMapButton == nil then db.hideWorldMapButton = true end
     if db.hideNorthTag == nil then db.hideNorthTag = true end
+    if db.controlsOnHover == nil then db.controlsOnHover = true end
 
     return db
 end
@@ -138,15 +130,6 @@ local function ApplyMinimapStyle()
 
     if not db then
         return
-    end
-
-    if db.hideClock ~= nil then
-        db.showClock = not db.hideClock
-        db.hideClock = nil
-    end
-    if db.hideZoneText ~= nil then
-        db.showZoneText = not db.hideZoneText
-        db.hideZoneText = nil
     end
 
     if db.enabled == false then
@@ -560,15 +543,30 @@ Minimap:SetScript(
 -- BLACKOUTUI MINIMAP BUTTON
 --------------------------------------------------
 
+-- Reuse BlackoutUI's button if another module already created it.
+-- This prevents duplicate "B" minimap buttons.
 local button =
-    CreateFrame(
-        "Button",
-        "BlackoutUIForeverMinimapButton",
-        Minimap,
-        "BackdropTemplate"
-    )
+    BUI.MinimapButton
+    or _G.BlackoutUI_MinimapButton
+
+if not button then
+    button =
+        CreateFrame(
+            "Button",
+            "BlackoutUI_MinimapButton",
+            Minimap,
+            "BackdropTemplate"
+        )
+end
 
 BUI.MinimapButton = button
+
+-- Retire the old Forever-named button if it exists from an older module.
+if _G.BlackoutUIForeverMinimapButton
+    and _G.BlackoutUIForeverMinimapButton ~= button then
+    _G.BlackoutUIForeverMinimapButton:Hide()
+    _G.BlackoutUIForeverMinimapButton:SetParent(nil)
+end
 
 button:SetFrameStrata("HIGH")
 button:SetSize(28, 28)
@@ -889,7 +887,11 @@ events:SetScript(
 
 local InfoLayer = CreateFrame("Frame", "BlackoutUI_MinimapInfo", Minimap)
 InfoLayer:SetAllPoints(Minimap)
-InfoLayer:SetFrameLevel((Minimap:GetFrameLevel() or 1) + 8)
+InfoLayer:SetFrameLevel((Minimap:GetFrameLevel() or 1) + 6)
+
+-- This frame is display-only. It must never intercept clicks intended
+-- for tracking or other minimap controls.
+InfoLayer:EnableMouse(false)
 
 local function MakeInfoText(point, x, y, justify)
     local text = InfoLayer:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
@@ -906,6 +908,219 @@ local ClockText = MakeInfoText("BOTTOMRIGHT", -5, 5, "RIGHT")
 local NorthText = MakeInfoText("TOP", 0, -22, "CENTER")
 NorthText:SetText("N")
 NorthText:SetTextColor(0.72, 0.74, 0.76, 1)
+
+
+--------------------------------------------------
+-- BLACKOUTUI MINIMAP CONTROL STRIP
+--------------------------------------------------
+
+local ControlStrip =
+    CreateFrame(
+        "Frame",
+        "BlackoutUI_MinimapControlStrip",
+        Minimap,
+        "BackdropTemplate"
+    )
+
+ControlStrip:SetPoint(
+    "TOPRIGHT",
+    Minimap,
+    "TOPRIGHT",
+    -4,
+    -4
+)
+ControlStrip:SetSize(22, 92)
+ControlStrip:SetFrameStrata("HIGH")
+ControlStrip:SetFrameLevel(
+    (Minimap:GetFrameLevel() or 1) + 30
+)
+ControlStrip:EnableMouse(false)
+
+local function CreateBUIControl(
+    name,
+    label,
+    tooltip,
+    onClick
+)
+    local b =
+        CreateFrame(
+            "Button",
+            "BlackoutUI_Minimap_" .. name,
+            ControlStrip,
+            "BackdropTemplate"
+        )
+
+    b:SetSize(20, 20)
+    b:SetBackdrop({
+        bgFile = "Interface\\Buttons\\WHITE8x8",
+        edgeFile = "Interface\\Buttons\\WHITE8x8",
+        edgeSize = 1,
+    })
+    b:SetBackdropColor(0.025, 0.025, 0.025, 0.94)
+    b:SetBackdropBorderColor(0.18, 0.20, 0.22, 1)
+    b:EnableMouse(true)
+
+    local text =
+        b:CreateFontString(
+            nil,
+            "OVERLAY",
+            "GameFontNormalSmall"
+        )
+
+    text:SetPoint("CENTER", 0, 0)
+    text:SetText(label)
+    text:SetTextColor(0.86, 0.88, 0.90, 1)
+    b.Label = text
+
+    b:SetScript(
+        "OnEnter",
+        function(self)
+            self:SetBackdropBorderColor(
+                0.22, 0.66, 0.92, 1
+            )
+            self.Label:SetTextColor(
+                0.22, 0.66, 0.92, 1
+            )
+
+            GameTooltip:SetOwner(
+                self,
+                "ANCHOR_LEFT"
+            )
+            GameTooltip:SetText(tooltip)
+            GameTooltip:Show()
+        end
+    )
+
+    b:SetScript(
+        "OnLeave",
+        function(self)
+            self:SetBackdropBorderColor(
+                0.18, 0.20, 0.22, 1
+            )
+            self.Label:SetTextColor(
+                0.86, 0.88, 0.90, 1
+            )
+            GameTooltip:Hide()
+        end
+    )
+
+    b:SetScript("OnClick", onClick)
+
+    return b
+end
+
+local WorldMapButton =
+    CreateBUIControl(
+        "WorldMap",
+        "M",
+        "World Map",
+        function()
+            if ToggleWorldMap then
+                ToggleWorldMap()
+            elseif _G.MiniMapWorldMapButton
+                and _G.MiniMapWorldMapButton.Click then
+                _G.MiniMapWorldMapButton:Click()
+            end
+        end
+    )
+
+local ZoomInButton =
+    CreateBUIControl(
+        "ZoomIn",
+        "+",
+        "Zoom In",
+        function()
+            Minimap:SetZoom(
+                math.min(
+                    (Minimap:GetZoom() or 0) + 1,
+                    5
+                )
+            )
+        end
+    )
+
+local ZoomOutButton =
+    CreateBUIControl(
+        "ZoomOut",
+        "-",
+        "Zoom Out",
+        function()
+            Minimap:SetZoom(
+                math.max(
+                    (Minimap:GetZoom() or 0) - 1,
+                    0
+                )
+            )
+        end
+    )
+
+local BUIControls = {
+    WorldMapButton,
+    ZoomInButton,
+    ZoomOutButton,
+}
+
+local function PolishControl(button, texture)
+    if button.Label then button.Label:Hide() end
+
+    local icon = button:CreateTexture(nil, "ARTWORK")
+    icon:SetPoint("TOPLEFT", 4, -4)
+    icon:SetPoint("BOTTOMRIGHT", -4, 4)
+    icon:SetTexture(texture)
+    icon:SetVertexColor(0.86, 0.88, 0.90, 1)
+    button.Icon = icon
+
+    local enter = button:GetScript("OnEnter")
+    local leave = button:GetScript("OnLeave")
+
+    button:SetScript("OnEnter", function(self)
+        if enter then enter(self) end
+        self.Icon:SetVertexColor(0.22, 0.66, 0.92, 1)
+    end)
+
+    button:SetScript("OnLeave", function(self)
+        if leave then leave(self) end
+        self.Icon:SetVertexColor(0.86, 0.88, 0.90, 1)
+    end)
+end
+
+PolishControl(WorldMapButton, "Interface\\WorldMap\\UI-World-Icon")
+PolishControl(ZoomInButton, "Interface\\Buttons\\UI-PlusButton-Up")
+PolishControl(ZoomOutButton, "Interface\\Buttons\\UI-MinusButton-Up")
+
+for index, control
+in ipairs(BUIControls) do
+    control:ClearAllPoints()
+    control:SetPoint(
+        "TOP",
+        ControlStrip,
+        "TOP",
+        0,
+        -((index - 1) * 23)
+    )
+end
+
+ControlStrip:SetHeight(
+    (#BUIControls * 23) - 3
+)
+
+local controlHoverElapsed = 0
+ControlStrip:HookScript("OnUpdate", function(self, elapsed)
+    controlHoverElapsed = controlHoverElapsed + elapsed
+    if controlHoverElapsed < 0.08 then return end
+    controlHoverElapsed = 0
+
+    local db = EnsureMinimapDB()
+    if not db or db.enabled == false then return end
+
+    if db.controlsOnHover then
+        self:SetAlpha(
+            (Minimap:IsMouseOver() or self:IsMouseOver()) and 1 or 0
+        )
+    else
+        self:SetAlpha(1)
+    end
+end)
 
 local infoElapsed = 0
 InfoLayer:SetScript("OnUpdate", function(self, elapsed)
@@ -960,17 +1175,6 @@ BlackoutUI.ApplyMinimapStyle = function(...)
     if not db then return end
 
     InfoLayer:SetShown(db.enabled ~= false)
-
-    local tracking =
-        _G.MiniMapTracking
-        or _G.MinimapTracking
-        or (_G.MinimapCluster and _G.MinimapCluster.Tracking)
-        or (_G.MinimapCluster and _G.MinimapCluster.TrackingButton)
-
-    if tracking then
-        tracking:SetAlpha(db.showTracking ~= false and 1 or 0)
-        tracking:SetShown(db.showTracking ~= false)
-    end
 
     -- Force our custom information elements immediately when config changes,
     -- rather than waiting for the next OnUpdate tick.
@@ -1184,49 +1388,152 @@ local function SetAnyShown(frames, shown)
     end
 end
 
+local function PrepareBlizzardControl(frame, point, x, y)
+    if not frame then
+        return
+    end
+
+    -- The stock circular backdrop can be hidden. Functional controls must
+    -- therefore live directly on the actual Minimap instead of hidden art.
+    if frame.SetParent then
+        frame:SetParent(Minimap)
+    end
+
+    if frame.ClearAllPoints and frame.SetPoint then
+        frame:ClearAllPoints()
+        frame:SetPoint(
+            point,
+            Minimap,
+            point,
+            x,
+            y
+        )
+    end
+
+    if frame.SetFrameStrata then
+        frame:SetFrameStrata("HIGH")
+    end
+
+    if frame.SetFrameLevel then
+        frame:SetFrameLevel(
+            (Minimap:GetFrameLevel() or 1) + 12
+        )
+    end
+end
+
 local function ApplyMinimapCleanup()
     local db = EnsureMinimapDB()
-
     if not db then
         return
     end
 
+    --------------------------------------------------
+    -- HIDE STOCK BLIZZARD CONTROLS
+    --------------------------------------------------
+
+    local calendar =
+        _G.GameTimeFrame
+        or _G.TimeManagerClockButton
+
+    local worldMap =
+        _G.MiniMapWorldMapButton
+        or _G.MinimapWorldMapButton
+
     SetAnyShown({
         _G.MinimapZoomIn,
         _G.MinimapZoomOut,
-    }, not db.hideZoomButtons)
+        calendar,
+        worldMap,
+    }, false)
 
-    SetAnyShown({
-        _G.TimeManagerClockButton,
-        _G.GameTimeFrame,
-        _G.MinimapCluster
-        and _G.MinimapCluster.CalendarFrame,
-    }, not db.hideCalendarButton)
+    --------------------------------------------------
+    -- BLACKOUTUI CONTROLS
+    --------------------------------------------------
 
-    SetAnyShown({
-        _G.MiniMapWorldMapButton,
-        _G.MinimapWorldMapButton,
-    }, not db.hideWorldMapButton)
+    WorldMapButton:SetShown(
+        not db.hideWorldMapButton
+    )
 
-    local tracking =
-        _G.MiniMapTracking
-        or _G.MinimapTracking
-        or (_G.MinimapCluster and _G.MinimapCluster.Tracking)
-        or (_G.MinimapCluster and _G.MinimapCluster.TrackingButton)
+    ZoomInButton:SetShown(
+        not db.hideZoomButtons
+    )
 
-    if tracking then
-        if tracking.SetAlpha then
-            tracking:SetAlpha(db.showTracking ~= false and 1 or 0)
+    ZoomOutButton:SetShown(
+        not db.hideZoomButtons
+    )
+
+    -- Repack visible buttons so there are never empty holes.
+    local visibleIndex = 0
+
+    for _, control
+    in ipairs(BUIControls) do
+        if control:IsShown() then
+            control:ClearAllPoints()
+            control:SetPoint(
+                "TOP",
+                ControlStrip,
+                "TOP",
+                0,
+                -(visibleIndex * 23)
+            )
+            visibleIndex =
+                visibleIndex + 1
         end
-        tracking:SetShown(db.showTracking ~= false)
     end
 
-    -- Native north artwork is part of the Blizzard circular backdrop,
-    -- which BlackoutUI intentionally removes. Use our clean "N" instead.
-    NorthText:SetShown(not db.hideNorthTag)
+    ControlStrip:SetHeight(
+        math.max(
+            20,
+            (visibleIndex * 23) - 3
+        )
+    )
 
-    -- BlackoutUI owns zone display, so stop Blizzard from restoring its
-    -- corner label on login/reload.
+    ControlStrip:SetShown(
+        db.enabled ~= false
+        and visibleIndex > 0
+    )
+
+    --------------------------------------------------
+    -- BLACKOUT INFO
+    --------------------------------------------------
+
+    ZoneText:SetShown(
+        db.showZoneText == true
+    )
+
+    if db.showZoneText then
+        ZoneText:SetText(
+            GetMinimapZoneText() or ""
+        )
+    else
+        ZoneText:SetText("")
+    end
+
+    ClockText:SetShown(
+        db.showClock == true
+    )
+
+    if db.showClock then
+        local hour, minute =
+            GetGameTime()
+
+        ClockText:SetFormattedText(
+            "%02d:%02d",
+            hour or 0,
+            minute or 0
+        )
+    else
+        ClockText:SetText("")
+    end
+
+    NorthText:SetShown(
+        not db.hideNorthTag
+    )
+
+    --------------------------------------------------
+    -- STOCK ART
+    --------------------------------------------------
+
     if _G.MinimapZoneTextButton then
         _G.MinimapZoneTextButton:Hide()
         _G.MinimapZoneTextButton:SetAlpha(0)
@@ -1238,10 +1545,6 @@ local function ApplyMinimapCleanup()
 
     if _G.MinimapBorderTop then
         _G.MinimapBorderTop:Hide()
-    end
-
-    if _G.MinimapToggleButton then
-        _G.MinimapToggleButton:Hide()
     end
 end
 

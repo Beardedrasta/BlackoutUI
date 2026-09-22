@@ -405,12 +405,7 @@ local function EnsureConfig()
     if minimap.showCoordinates == nil then minimap.showCoordinates = true end
     if minimap.showZoneText == nil then minimap.showZoneText = true end
     if minimap.showClock == nil then minimap.showClock = true end
-    if minimap.showTracking == nil then minimap.showTracking = true end
-
-    if minimap.hideZoomButtons == nil then minimap.hideZoomButtons = true end
-    if minimap.hideCalendarButton == nil then minimap.hideCalendarButton = true end
-    if minimap.hideWorldMapButton == nil then minimap.hideWorldMapButton = true end
-    if minimap.hideNorthTag == nil then minimap.hideNorthTag = true end
+    if minimap.controlsOnHover == nil then minimap.controlsOnHover = true end
 
     return BlackoutUIDB.Config
 end
@@ -3318,94 +3313,17 @@ MinimapControls.clock = CreateCheckbox(
     end
 )
 
-MinimapControls.tracking = CreateCheckbox(
-    MinimapPage, "Show Blizzard Tracking Control", 22, -230,
-    function() return MinimapConfig().showTracking end,
+MinimapControls.controlsOnHover = CreateCheckbox(
+    MinimapPage, "Show Controls Only On Hover", 22, -230,
+    function() return MinimapConfig().controlsOnHover end,
     function(value)
-        MinimapConfig().showTracking = value
+        MinimapConfig().controlsOnHover = value
         ApplyMinimapConfig()
     end
 )
 
-local minimapCleanupTitle =
-    BlackoutUI:CreateFont(
-        MinimapPage,
-        9
-    )
-
-minimapCleanupTitle:SetPoint(
-    "TOPLEFT",
-    MinimapPage,
-    "TOPLEFT",
-    22,
-    -270
-)
-
-minimapCleanupTitle:SetText("BLIZZARD CLUTTER")
-minimapCleanupTitle:SetTextColor(unpack(ACCENT))
-
-MinimapControls.zoomButtons =
-    CreateCheckbox(
-        MinimapPage,
-        "Hide Zoom +/- Buttons",
-        22,
-        -294,
-        function()
-            return MinimapConfig().hideZoomButtons
-        end,
-        function(value)
-            MinimapConfig().hideZoomButtons = value
-            ApplyMinimapConfig()
-        end
-    )
-
-MinimapControls.calendarButton =
-    CreateCheckbox(
-        MinimapPage,
-        "Hide Calendar / Time Button",
-        22,
-        -326,
-        function()
-            return MinimapConfig().hideCalendarButton
-        end,
-        function(value)
-            MinimapConfig().hideCalendarButton = value
-            ApplyMinimapConfig()
-        end
-    )
-
-MinimapControls.worldMapButton =
-    CreateCheckbox(
-        MinimapPage,
-        "Hide World Map Button",
-        22,
-        -358,
-        function()
-            return MinimapConfig().hideWorldMapButton
-        end,
-        function(value)
-            MinimapConfig().hideWorldMapButton = value
-            ApplyMinimapConfig()
-        end
-    )
-
-MinimapControls.northTag =
-    CreateCheckbox(
-        MinimapPage,
-        "Hide North Indicator",
-        22,
-        -390,
-        function()
-            return MinimapConfig().hideNorthTag
-        end,
-        function(value)
-            MinimapConfig().hideNorthTag = value
-            ApplyMinimapConfig()
-        end
-    )
-
 MinimapControls.size = CreateStepper(
-    MinimapPage, "Minimap Size", 22, -438, 420,
+    MinimapPage, "Minimap Size", 22, -310, 420,
     function() return MinimapConfig().size end,
     function(value)
         MinimapConfig().size = value
@@ -3416,7 +3334,7 @@ MinimapControls.size = CreateStepper(
 )
 
 MinimapControls.scale = CreateStepper(
-    MinimapPage, "Minimap Scale", 22, -470, 420,
+    MinimapPage, "Minimap Scale", 22, -342, 420,
     function() return MinimapConfig().scale end,
     function(value)
         MinimapConfig().scale = value
@@ -3426,27 +3344,12 @@ MinimapControls.scale = CreateStepper(
     function(value) return string.format("%.2f", value) end
 )
 
-local minimapReset =
-    CreateActionButton(
-        MinimapPage,
-        "RESET MINIMAP POSITION",
-        22,
-        -518,
-        190,
-        function()
-            if BlackoutUI.Minimap
-                and BlackoutUI.Minimap.ResetPosition then
-                BlackoutUI.Minimap.ResetPosition()
-            end
-        end
-    )
-
 local minimapNote = BlackoutUI:CreateFont(MinimapPage, 8)
-minimapNote:SetPoint("TOPLEFT", MinimapPage, "TOPLEFT", 22, -566)
+minimapNote:SetPoint("TOPLEFT", MinimapPage, "TOPLEFT", 22, -358)
 minimapNote:SetWidth(440)
 minimapNote:SetJustifyH("LEFT")
 minimapNote:SetText(
-    "Mouse wheel over the minimap zooms in/out. Use /bui move to drag the minimap. Tracking remains Blizzard-functional."
+    "Mouse wheel over the minimap zooms in/out. Position is handled through /bui move. Tracking remains Blizzard-functional."
 )
 minimapNote:SetTextColor(unpack(MUTED))
 

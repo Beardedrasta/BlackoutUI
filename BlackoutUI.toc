@@ -22,5 +22,6 @@ Modules\UtilityBar.lua
 Modules\ClassBars.lua
 Modules\SpecialActions.lua
 Modules\Minimap.lua
+Modules\Bags.lua
 Modules\BlizzardUI.lua
 Modules\Config.lua
