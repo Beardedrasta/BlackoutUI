@@ -23,6 +23,13 @@ Modules\ClassBars.lua
 Modules\SpecialActions.lua
 Modules\Minimap.lua
 Modules\Bags.lua
+Modules\LootFrames.lua
+Modules\LootNotifications.lua
+Modules\ReadyCheck.lua
+Modules\MerchantFrame.lua
+Modules\ObjectiveTracker.lua
 Modules\Tooltips.lua
 Modules\BlizzardUI.lua
 Modules\Config.lua
+
+###Modules\GroupLootFrames.lua

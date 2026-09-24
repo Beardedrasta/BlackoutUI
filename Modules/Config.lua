@@ -73,6 +73,76 @@ local function EnsureConfig()
         xp.dashboardScale = 1.00
     end
 
+    BlackoutUIDB.Config.LootFrames =
+        BlackoutUIDB.Config.LootFrames
+        or {}
+
+    local lootDefaults = {
+        enabled = true,
+        scale = 1.00,
+        point = "TOPLEFT",
+        relativePoint = "TOPLEFT",
+        x = 20,
+        y = -180,
+    }
+
+    for key, value in pairs(lootDefaults) do
+        if BlackoutUIDB.Config.LootFrames[key] == nil then
+            BlackoutUIDB.Config.LootFrames[key] = value
+        end
+    end
+
+    BlackoutUIDB.Config.LootNotifications =
+        BlackoutUIDB.Config.LootNotifications
+        or {}
+
+    if BlackoutUIDB.Config.LootNotifications.enabled == nil then
+        BlackoutUIDB.Config.LootNotifications.enabled = true
+    end
+    if BlackoutUIDB.Config.LootNotifications.width == nil then
+        BlackoutUIDB.Config.LootNotifications.width = 360
+    end
+    if BlackoutUIDB.Config.LootNotifications.height == nil then
+        BlackoutUIDB.Config.LootNotifications.height = 34
+    end
+    if BlackoutUIDB.Config.LootNotifications.textSize == nil then
+        BlackoutUIDB.Config.LootNotifications.textSize = 10
+    end
+    if BlackoutUIDB.Config.LootNotifications.duration == nil then
+        BlackoutUIDB.Config.LootNotifications.duration = 4.5
+    end
+    if BlackoutUIDB.Config.LootNotifications.maxVisible == nil then
+        BlackoutUIDB.Config.LootNotifications.maxVisible = 5
+    end
+    if BlackoutUIDB.Config.LootNotifications.spacing == nil then
+        BlackoutUIDB.Config.LootNotifications.spacing = 4
+    end
+
+    BlackoutUIDB.Config.ObjectiveTracker =
+        BlackoutUIDB.Config.ObjectiveTracker
+        or {}
+
+    local objectiveDefaults = {
+        enabled = true,
+        width = 285,
+        scale = 1.00,
+        opacity = 0.72,
+        showBackground = true,
+        titleSize = 12,
+        objectiveSize = 10,
+        completedColor = true,
+        point = "TOPRIGHT",
+        relativePoint = "TOPRIGHT",
+        x = -35,
+        y = -220,
+    }
+
+    for key, value in pairs(objectiveDefaults) do
+        if BlackoutUIDB.Config.ObjectiveTracker[key] == nil then
+            BlackoutUIDB.Config.ObjectiveTracker[key] = value
+        end
+    end
+
     BlackoutUIDB.Config.Tooltips =
         BlackoutUIDB.Config.Tooltips
         or {}
@@ -319,6 +389,29 @@ local function EnsureConfig()
         showPowerValue = true,
     })
 
+    EnsureUnitFrame("focus", {
+        enabled = true,
+        width = 300,
+        height = 82,
+        scale = 1.00,
+        headerHeight = 19,
+        healthHeight = 34,
+        powerHeight = 15,
+        nameSize = 11,
+        levelSize = 9,
+        healthValueSize = 11,
+        healthPercentSize = 12,
+        powerLabelSize = 8,
+        powerValueSize = 9,
+        showName = true,
+        showLevel = true,
+        showHealthValue = true,
+        showHealthPercent = true,
+        showPowerLabel = true,
+        showPowerValue = true,
+        showPowerBar = true,
+    })
+
     EnsureUnitFrame("targettarget", {
         enabled = true,
         width = 200,
@@ -352,6 +445,10 @@ local function EnsureConfig()
         showPowerLabel = true,
         showPowerValue = true,
         showPowerBar = true,
+        showPetAuras = true,
+        auraIconSize = 16,
+        maxPetBuffs = 4,
+        maxPetDebuffs = 4,
     })
 
     EnsureUnitFrame("party", {
@@ -1650,6 +1747,7 @@ local SelectedUnitFrame = "player"
 local UnitFrameOrder = {
     { key = "player",       label = "PLAYER" },
     { key = "target",       label = "TARGET" },
+    { key = "focus",        label = "FOCUS" },
     { key = "targettarget", label = "TARGET OF TARGET" },
     { key = "pet",          label = "PET" },
     { key = "party",        label = "PARTY" },
@@ -1672,6 +1770,10 @@ local function ApplySelectedUnitFrame()
     elseif SelectedUnitFrame == "target" then
         if BlackoutUI.TargetFrame and BlackoutUI.TargetFrame.ApplyConfig then
             BlackoutUI.TargetFrame:ApplyConfig()
+        end
+    elseif SelectedUnitFrame == "focus" then
+        if BlackoutUI.FocusFrame and BlackoutUI.FocusFrame.ApplyConfig then
+            BlackoutUI.FocusFrame:ApplyConfig()
         end
     elseif SelectedUnitFrame == "targettarget" then
         if BlackoutUI.TargetOfTarget and BlackoutUI.TargetOfTarget.ApplyConfig then
@@ -1702,11 +1804,7 @@ for index, info in ipairs(UnitFrameOrder) do
     local width =
         info.key == "targettarget"
         and 98
-        or (
-            info.key == "raid"
-            and 54
-            or 62
-        )
+        or 54
     button:SetSize(width, 28)
 
     if index == 1 then
@@ -2803,6 +2901,143 @@ AddUnitCheckbox("showPowerLabel", "Show Power Label", -1034, true)
 AddUnitCheckbox("showPowerValue", "Show Power Value", -1064, true)
 AddUnitCheckbox("showPowerBar", "Show Power Bar", -1094, true)
 
+--------------------------------------------------
+-- PET AURA CONTROLS
+--------------------------------------------------
+
+local petAuraTitle =
+    BlackoutUI:CreateFont(
+        UnitFramesPage,
+        9
+    )
+
+petAuraTitle:SetPoint(
+    "TOPLEFT",
+    UnitFramesPage,
+    "TOPLEFT",
+    22,
+    -590
+)
+
+petAuraTitle:SetText("PET AURAS")
+petAuraTitle:SetTextColor(unpack(ACCENT))
+
+local petShowAuras =
+    CreateCheckbox(
+        UnitFramesPage,
+        "Show Pet Buffs / Debuffs",
+        22,
+        -614,
+        function()
+            return SelectedUnitConfig().showPetAuras
+        end,
+        function(value)
+            SelectedUnitConfig().showPetAuras = value
+            ApplySelectedUnitFrame()
+        end
+    )
+
+local petAuraIconSize =
+    CreateStepper(
+        UnitFramesPage,
+        "Pet Aura Icon Size",
+        22,
+        -646,
+        420,
+        function()
+            return SelectedUnitConfig().auraIconSize or 16
+        end,
+        function(value)
+            SelectedUnitConfig().auraIconSize = value
+            ApplySelectedUnitFrame()
+        end,
+        1, 10, 30,
+        function(value)
+            return string.format("%d px", value)
+        end
+    )
+
+local petMaxBuffs =
+    CreateStepper(
+        UnitFramesPage,
+        "Maximum Pet Buffs",
+        22,
+        -678,
+        420,
+        function()
+            return SelectedUnitConfig().maxPetBuffs or 4
+        end,
+        function(value)
+            SelectedUnitConfig().maxPetBuffs = value
+            ApplySelectedUnitFrame()
+        end,
+        1, 0, 4,
+        function(value)
+            return string.format("%d", value)
+        end
+    )
+
+local petMaxDebuffs =
+    CreateStepper(
+        UnitFramesPage,
+        "Maximum Pet Debuffs",
+        22,
+        -710,
+        420,
+        function()
+            return SelectedUnitConfig().maxPetDebuffs or 4
+        end,
+        function(value)
+            SelectedUnitConfig().maxPetDebuffs = value
+            ApplySelectedUnitFrame()
+        end,
+        1, 0, 4,
+        function(value)
+            return string.format("%d", value)
+        end
+    )
+
+local function RefreshPetAuraControls()
+    local isPet =
+        SelectedUnitFrame == "pet"
+
+    petAuraTitle:SetShown(isPet)
+    petShowAuras:SetShown(isPet)
+    petAuraIconSize:SetShown(isPet)
+    petMaxBuffs:SetShown(isPet)
+    petMaxDebuffs:SetShown(isPet)
+
+    if not isPet then
+        return
+    end
+
+    petAuraTitle:ClearAllPoints()
+    petAuraTitle:SetPoint("TOPLEFT", UnitFramesPage, "TOPLEFT", 22, -590)
+
+    petShowAuras:ClearAllPoints()
+    petShowAuras:SetPoint("TOPLEFT", UnitFramesPage, "TOPLEFT", 22, -614)
+
+    petAuraIconSize:ClearAllPoints()
+    petAuraIconSize:SetPoint("TOPLEFT", UnitFramesPage, "TOPLEFT", 22, -646)
+
+    petMaxBuffs:ClearAllPoints()
+    petMaxBuffs:SetPoint("TOPLEFT", UnitFramesPage, "TOPLEFT", 22, -678)
+
+    petMaxDebuffs:ClearAllPoints()
+    petMaxDebuffs:SetPoint("TOPLEFT", UnitFramesPage, "TOPLEFT", 22, -710)
+
+    for _, control in ipairs({
+        petShowAuras,
+        petAuraIconSize,
+        petMaxBuffs,
+        petMaxDebuffs,
+    }) do
+        if control.Refresh then
+            control:Refresh()
+        end
+    end
+end
+
 local resetUnitButton = CreateActionButton(
     UnitFramesPage, "RESET SELECTED FRAME", 22, -1134, 190,
     function()
@@ -2814,6 +3049,10 @@ local resetUnitButton = CreateActionButton(
             and BlackoutUI.TargetFrame
             and BlackoutUI.TargetFrame.ResetConfig then
             BlackoutUI.TargetFrame:ResetConfig()
+        elseif SelectedUnitFrame == "focus"
+            and BlackoutUI.FocusFrame
+            and BlackoutUI.FocusFrame.ResetConfig then
+            BlackoutUI.FocusFrame:ResetConfig()
         elseif SelectedUnitFrame == "targettarget"
             and BlackoutUI.TargetOfTarget
             and BlackoutUI.TargetOfTarget.ResetConfig then
@@ -2840,7 +3079,7 @@ local resetUnitButton = CreateActionButton(
 
 -- This page now has more controls than the visible config window.
 -- Increase only this page's scrollable canvas.
-UnitFramesPage:SetHeight(1490)
+UnitFramesPage:SetHeight(1560)
 
 function UnitFramesPage:Refresh()
     local compact = SelectedUnitFrame == "targettarget"
@@ -2886,6 +3125,52 @@ function UnitFramesPage:Refresh()
     barsTitle:SetShown(not groupGrid)
     textTitle:SetShown(not groupGrid)
     displayTitle:SetShown(not groupGrid)
+
+    --------------------------------------------------
+    -- STANDARD UNIT FRAME PAGE LAYOUT
+    --------------------------------------------------
+    -- Party/Raid temporarily re-anchor shared controls into their compact
+    -- grid layout. Restore every shared control when returning to
+    -- Player/Target/Target-of-Target/Pet so controls never stack on top
+    -- of each other.
+    if not groupGrid then
+        local standardY = {
+            enabled = -128,
+            width = -158,
+            height = -188,
+            scale = -218,
+            headerHeight = -276,
+            healthHeight = -306,
+            powerHeight = -336,
+            nameSize = -394,
+            levelSize = -424,
+            healthValueSize = -454,
+            healthPercentSize = -484,
+            powerLabelSize = -514,
+            powerValueSize = -544,
+            showName = -914,
+            showLevel = -944,
+            showHealthValue = -974,
+            showHealthPercent = -1004,
+            showPowerLabel = -1034,
+            showPowerValue = -1064,
+            showPowerBar = -1094,
+        }
+
+        for key, y in pairs(standardY) do
+            local control = UnitFrameControls[key]
+            if control then
+                control:ClearAllPoints()
+                control:SetPoint(
+                    "TOPLEFT",
+                    UnitFramesPage,
+                    "TOPLEFT",
+                    22,
+                    y
+                )
+            end
+        end
+    end
 
     --------------------------------------------------
     -- COMPACT GRID PAGE LAYOUT
@@ -3281,6 +3566,42 @@ function UnitFramesPage:Refresh()
 
     RefreshPartyControls()
     RefreshRaidControls()
+    RefreshPetAuraControls()
+
+    if SelectedUnitFrame == "pet" then
+        displayTitle:ClearAllPoints()
+        displayTitle:SetPoint("TOPLEFT", UnitFramesPage, "TOPLEFT", 22, -758)
+
+        local petDisplayY = {
+            showName = -782,
+            showLevel = -812,
+            showHealthValue = -842,
+            showHealthPercent = -872,
+            showPowerLabel = -902,
+            showPowerValue = -932,
+            showPowerBar = -962,
+        }
+
+        for key, y in pairs(petDisplayY) do
+            local control = UnitFrameControls[key]
+            if control then
+                control:ClearAllPoints()
+                control:SetPoint("TOPLEFT", UnitFramesPage, "TOPLEFT", 22, y)
+            end
+        end
+    elseif not groupGrid then
+        displayTitle:ClearAllPoints()
+        displayTitle:SetPoint("TOPLEFT", UnitFramesPage, "TOPLEFT", 22, -890)
+    end
+
+    resetUnitButton:ClearAllPoints()
+    resetUnitButton:SetPoint(
+        "TOPLEFT",
+        UnitFramesPage,
+        "TOPLEFT",
+        22,
+        SelectedUnitFrame == "pet" and -1010 or -1134
+    )
 end
 
 UnitFramesPage:Refresh()
@@ -3379,6 +3700,532 @@ minimapNote:SetText(
     "Mouse wheel over the minimap zooms in/out. Position is handled through /bui move. Tracking remains Blizzard-functional."
 )
 minimapNote:SetTextColor(unpack(MUTED))
+
+--------------------------------------------------
+-- OBJECTIVE TRACKER PAGE
+--------------------------------------------------
+
+local ObjectiveTrackerPage =
+    CreatePage("objectivetracker", "OBJECTIVE TRACKER")
+
+local ObjectiveTrackerControls = {}
+
+local function ObjectiveTrackerConfig()
+    return EnsureConfig().ObjectiveTracker
+end
+
+local function ApplyObjectiveTrackerConfig()
+    if BlackoutUI.ObjectiveTracker
+        and BlackoutUI.ObjectiveTracker.ApplyConfig then
+        BlackoutUI.ObjectiveTracker.ApplyConfig()
+    end
+end
+
+local objectiveIntro =
+    BlackoutUI:CreateFont(ObjectiveTrackerPage, 9)
+
+objectiveIntro:SetPoint(
+    "TOPLEFT",
+    ObjectiveTrackerPage,
+    "TOPLEFT",
+    22,
+    -42
+)
+
+objectiveIntro:SetWidth(470)
+objectiveIntro:SetJustifyH("LEFT")
+objectiveIntro:SetText(
+    "Blackout styling and sizing for the Classic quest/objective tracker."
+)
+objectiveIntro:SetTextColor(unpack(MUTED))
+
+ObjectiveTrackerControls.enabled = CreateCheckbox(
+    ObjectiveTrackerPage,
+    "Enable Blackout Objective Tracker",
+    22,
+    -92,
+    function()
+        return ObjectiveTrackerConfig().enabled
+    end,
+    function(value)
+        ObjectiveTrackerConfig().enabled = value
+        ApplyObjectiveTrackerConfig()
+    end
+)
+
+ObjectiveTrackerControls.background = CreateCheckbox(
+    ObjectiveTrackerPage,
+    "Show Background",
+    22,
+    -124,
+    function()
+        return ObjectiveTrackerConfig().showBackground
+    end,
+    function(value)
+        ObjectiveTrackerConfig().showBackground = value
+        ApplyObjectiveTrackerConfig()
+    end
+)
+
+ObjectiveTrackerControls.completedColor = CreateCheckbox(
+    ObjectiveTrackerPage,
+    "Highlight Completed Objectives",
+    22,
+    -156,
+    function()
+        return ObjectiveTrackerConfig().completedColor
+    end,
+    function(value)
+        ObjectiveTrackerConfig().completedColor = value
+        ApplyObjectiveTrackerConfig()
+    end
+)
+
+ObjectiveTrackerControls.width = CreateStepper(
+    ObjectiveTrackerPage,
+    "Tracker Width",
+    22,
+    -204,
+    420,
+    function()
+        return ObjectiveTrackerConfig().width
+    end,
+    function(value)
+        ObjectiveTrackerConfig().width = value
+        ApplyObjectiveTrackerConfig()
+    end,
+    5,
+    180,
+    500,
+    function(value)
+        return string.format("%d px", value)
+    end
+)
+
+ObjectiveTrackerControls.scale = CreateStepper(
+    ObjectiveTrackerPage,
+    "Tracker Scale",
+    22,
+    -236,
+    420,
+    function()
+        return ObjectiveTrackerConfig().scale
+    end,
+    function(value)
+        ObjectiveTrackerConfig().scale = value
+        ApplyObjectiveTrackerConfig()
+    end,
+    0.05,
+    0.50,
+    1.50,
+    function(value)
+        return string.format("%.2f", value)
+    end
+)
+
+ObjectiveTrackerControls.opacity = CreateStepper(
+    ObjectiveTrackerPage,
+    "Background Opacity",
+    22,
+    -268,
+    420,
+    function()
+        return ObjectiveTrackerConfig().opacity
+    end,
+    function(value)
+        ObjectiveTrackerConfig().opacity = value
+        ApplyObjectiveTrackerConfig()
+    end,
+    0.05,
+    0.10,
+    1.00,
+    function(value)
+        return string.format(
+            "%d%%",
+            math.floor(value * 100 + 0.5)
+        )
+    end
+)
+
+ObjectiveTrackerControls.titleSize = CreateStepper(
+    ObjectiveTrackerPage,
+    "Quest / Header Text Size",
+    22,
+    -300,
+    420,
+    function()
+        return ObjectiveTrackerConfig().titleSize
+    end,
+    function(value)
+        ObjectiveTrackerConfig().titleSize = value
+        ApplyObjectiveTrackerConfig()
+    end,
+    1,
+    8,
+    20,
+    function(value)
+        return string.format("%d px", value)
+    end
+)
+
+ObjectiveTrackerControls.objectiveSize = CreateStepper(
+    ObjectiveTrackerPage,
+    "Objective Text Size",
+    22,
+    -332,
+    420,
+    function()
+        return ObjectiveTrackerConfig().objectiveSize
+    end,
+    function(value)
+        ObjectiveTrackerConfig().objectiveSize = value
+        ApplyObjectiveTrackerConfig()
+    end,
+    1,
+    8,
+    18,
+    function(value)
+        return string.format("%d px", value)
+    end
+)
+
+local resetButton =
+    CreateFrame(
+        "Button",
+        nil,
+        ObjectiveTrackerPage,
+        "BackdropTemplate"
+    )
+
+resetButton:SetSize(190, 28)
+resetButton:SetPoint(
+    "TOPLEFT",
+    ObjectiveTrackerPage,
+    "TOPLEFT",
+    22,
+    -382
+)
+
+resetButton:SetBackdrop({
+    bgFile = "Interface\\Buttons\\WHITE8x8",
+    edgeFile = "Interface\\Buttons\\WHITE8x8",
+    edgeSize = 1,
+})
+
+resetButton:SetBackdropColor(0.02, 0.02, 0.02, 1)
+resetButton:SetBackdropBorderColor(0.18, 0.20, 0.22, 1)
+
+local resetText =
+    resetButton:CreateFontString(
+        nil,
+        "OVERLAY",
+        "GameFontNormalSmall"
+    )
+
+resetText:SetPoint("CENTER")
+resetText:SetText("RESET TRACKER POSITION")
+resetText:SetTextColor(0.82, 0.84, 0.86, 1)
+
+resetButton:SetScript("OnEnter", function(self)
+    self:SetBackdropBorderColor(0.22, 0.66, 0.92, 1)
+    resetText:SetTextColor(0.22, 0.66, 0.92, 1)
+end)
+
+resetButton:SetScript("OnLeave", function(self)
+    self:SetBackdropBorderColor(0.18, 0.20, 0.22, 1)
+    resetText:SetTextColor(0.82, 0.84, 0.86, 1)
+end)
+
+resetButton:SetScript("OnClick", function()
+    local db = ObjectiveTrackerConfig()
+
+    db.point = "TOPRIGHT"
+    db.relativePoint = "TOPRIGHT"
+    db.x = -35
+    db.y = -220
+
+    ApplyObjectiveTrackerConfig()
+end)
+
+local objectiveNote =
+    BlackoutUI:CreateFont(ObjectiveTrackerPage, 8)
+
+objectiveNote:SetPoint(
+    "TOPLEFT",
+    ObjectiveTrackerPage,
+    "TOPLEFT",
+    22,
+    -432
+)
+
+objectiveNote:SetWidth(470)
+objectiveNote:SetJustifyH("LEFT")
+objectiveNote:SetText(
+    "Use /bui move to reposition the tracker. Width and scale update the underlying Classic tracker."
+)
+objectiveNote:SetTextColor(unpack(MUTED))
+
+ObjectiveTrackerPage:SetHeight(500)
+
+--------------------------------------------------
+-- LOOT PAGE
+--------------------------------------------------
+
+LootPage = CreatePage("loot", "LOOT")
+LootControls = {}
+
+function LootConfig()
+    return EnsureConfig().LootFrames
+end
+
+function ApplyLootConfig()
+    if BlackoutUI.LootFrames
+        and BlackoutUI.LootFrames.ApplyConfig then
+        BlackoutUI.LootFrames.ApplyConfig()
+    end
+end
+
+lootIntro =
+    BlackoutUI:CreateFont(
+        LootPage,
+        9
+    )
+
+lootIntro:SetPoint(
+    "TOPLEFT",
+    LootPage,
+    "TOPLEFT",
+    22,
+    -42
+)
+
+lootIntro:SetWidth(470)
+lootIntro:SetJustifyH("LEFT")
+lootIntro:SetText(
+    "Blackout styling and positioning for the Classic loot window."
+)
+lootIntro:SetTextColor(unpack(MUTED))
+
+LootControls.enabled = CreateCheckbox(
+    LootPage,
+    "Enable Blackout Loot Window",
+    22,
+    -92,
+    function()
+        return LootConfig().enabled
+    end,
+    function(value)
+        LootConfig().enabled = value
+        ApplyLootConfig()
+    end
+)
+
+LootControls.scale = CreateStepper(
+    LootPage,
+    "Loot Window Scale",
+    22,
+    -140,
+    420,
+    function()
+        return LootConfig().scale
+    end,
+    function(value)
+        LootConfig().scale = value
+        ApplyLootConfig()
+    end,
+    0.05,
+    0.50,
+    1.50,
+    function(value)
+        return string.format("%.2f", value)
+    end
+)
+
+CreateActionButton(
+    LootPage,
+    "RESET LOOT WINDOW",
+    22,
+    -196,
+    190,
+    function()
+        if BlackoutUI.LootFrames
+            and BlackoutUI.LootFrames.ResetConfig then
+            BlackoutUI.LootFrames:ResetConfig()
+        else
+            BlackoutUIDB.Config.LootFrames = nil
+            EnsureConfig()
+            ApplyLootConfig()
+        end
+
+        for _, control in pairs(LootControls) do
+            if control.Refresh then
+                control:Refresh()
+            end
+        end
+    end
+)
+
+lootNote =
+    BlackoutUI:CreateFont(
+        LootPage,
+        8
+    )
+
+lootNote:SetPoint(
+    "TOPLEFT",
+    LootPage,
+    "TOPLEFT",
+    22,
+    -250
+)
+
+lootNote:SetWidth(470)
+lootNote:SetJustifyH("LEFT")
+lootNote:SetText(
+    "Use /bui move to position the loot window. Reset restores its default BlackoutUI position and scale."
+)
+lootNote:SetTextColor(unpack(MUTED))
+
+--------------------------------------------------
+-- LOOT / ROLL NOTIFICATIONS
+-- Globals are intentional here: Config.lua is already
+-- near Classic Lua's 200-local main-chunk limit.
+--------------------------------------------------
+
+LootNotificationControls = {}
+
+function LootNotificationConfig()
+    EnsureConfig()
+    return BlackoutUIDB.Config.LootNotifications
+end
+
+function ApplyLootNotificationConfig()
+    if BlackoutUI.LootNotifications
+        and BlackoutUI.LootNotifications.ApplyConfig then
+        BlackoutUI.LootNotifications:ApplyConfig()
+    end
+end
+
+lootNotificationTitle = BlackoutUI:CreateFont(LootPage, 9)
+lootNotificationTitle:SetPoint("TOPLEFT", LootPage, "TOPLEFT", 22, -310)
+lootNotificationTitle:SetText("LOOT / ROLL NOTIFICATIONS")
+lootNotificationTitle:SetTextColor(unpack(ACCENT))
+
+LootNotificationControls.enabled = CreateCheckbox(
+    LootPage, "Enable Loot / Roll Notifications", 22, -340,
+    function() return LootNotificationConfig().enabled end,
+    function(value)
+        LootNotificationConfig().enabled = value
+        ApplyLootNotificationConfig()
+    end
+)
+
+LootNotificationControls.width = CreateStepper(
+    LootPage, "Notification Width", 22, -382, 420,
+    function() return LootNotificationConfig().width end,
+    function(value)
+        LootNotificationConfig().width = value
+        ApplyLootNotificationConfig()
+    end,
+    10, 240, 600,
+    function(value) return string.format("%d px", value) end
+)
+
+LootNotificationControls.height = CreateStepper(
+    LootPage, "Notification Height", 22, -424, 420,
+    function() return LootNotificationConfig().height end,
+    function(value)
+        LootNotificationConfig().height = value
+        ApplyLootNotificationConfig()
+    end,
+    2, 24, 60,
+    function(value) return string.format("%d px", value) end
+)
+
+LootNotificationControls.textSize = CreateStepper(
+    LootPage, "Text Size", 22, -466, 420,
+    function() return LootNotificationConfig().textSize end,
+    function(value)
+        LootNotificationConfig().textSize = value
+        ApplyLootNotificationConfig()
+    end,
+    1, 8, 18,
+    function(value) return string.format("%d px", value) end
+)
+
+LootNotificationControls.duration = CreateStepper(
+    LootPage, "Display Duration", 22, -508, 420,
+    function() return LootNotificationConfig().duration end,
+    function(value)
+        LootNotificationConfig().duration = value
+        ApplyLootNotificationConfig()
+    end,
+    0.5, 1.5, 10,
+    function(value) return string.format("%.1f sec", value) end
+)
+
+LootNotificationControls.maxVisible = CreateStepper(
+    LootPage, "Maximum Visible", 22, -550, 420,
+    function() return LootNotificationConfig().maxVisible end,
+    function(value)
+        LootNotificationConfig().maxVisible = value
+        ApplyLootNotificationConfig()
+    end,
+    1, 1, 8,
+    function(value) return string.format("%d", value) end
+)
+
+LootNotificationControls.spacing = CreateStepper(
+    LootPage, "Notification Spacing", 22, -592, 420,
+    function() return LootNotificationConfig().spacing end,
+    function(value)
+        LootNotificationConfig().spacing = value
+        ApplyLootNotificationConfig()
+    end,
+    1, 0, 16,
+    function(value) return string.format("%d px", value) end
+)
+
+CreateActionButton(
+    LootPage, "TEST NOTIFICATIONS", 22, -650, 190,
+    function()
+        if BlackoutUI.LootNotifications
+            and BlackoutUI.LootNotifications.Test then
+            BlackoutUI.LootNotifications:Test()
+        end
+    end
+)
+
+CreateActionButton(
+    LootPage, "RESET NOTIFICATIONS", 220, -650, 190,
+    function()
+        if BlackoutUI.LootNotifications
+            and BlackoutUI.LootNotifications.ResetConfig then
+            BlackoutUI.LootNotifications:ResetConfig()
+        else
+            BlackoutUIDB.Config.LootNotifications = nil
+            EnsureConfig()
+            ApplyLootNotificationConfig()
+        end
+
+        for _, control in pairs(LootNotificationControls) do
+            if control.Refresh then
+                control:Refresh()
+            end
+        end
+    end
+)
+
+lootNotificationNote = BlackoutUI:CreateFont(LootPage, 8)
+lootNotificationNote:SetPoint("TOPLEFT", LootPage, "TOPLEFT", 22, -704)
+lootNotificationNote:SetWidth(470)
+lootNotificationNote:SetJustifyH("LEFT")
+lootNotificationNote:SetText(
+    "Use /bui move to position the notification stack. TEST NOTIFICATIONS lets you preview changes without needing to loot anything."
+)
+lootNotificationNote:SetTextColor(unpack(MUTED))
+
+LootPage:SetHeight(780)
 
 --------------------------------------------------
 -- TOOLTIPS PAGE
@@ -4799,18 +5646,20 @@ MakeComingSoonPage(
 --------------------------------------------------
 
 local nav = {
-    { "general",    "GENERAL" },
-    { "unitframes", "UNIT FRAMES" },
-    { "minimap",    "MINIMAP" },
-    { "tooltips",   "TOOLTIPS" },
-    { "bags",       "BAGS" },
-    { "actionbars", "ACTION BARS" },
-    { "xp",         "XP TRACKER" },
-    { "classbars",  "CLASS BARS" },
-    { "auras",      "AURAS" },
-    { "castbars",   "CAST BARS" },
-    { "utility",    "UTILITY BAR" },
-    { "special",    "SPECIAL" },
+    { "general",          "GENERAL" },
+    { "unitframes",       "UNIT FRAMES" },
+    { "minimap",          "MINIMAP" },
+    { "objectivetracker", "OBJECTIVE TRACKER" },
+    { "loot",             "LOOT" },
+    { "tooltips",         "TOOLTIPS" },
+    { "bags",             "BAGS" },
+    { "actionbars",       "ACTION BARS" },
+    { "xp",               "XP TRACKER" },
+    { "classbars",        "CLASS BARS" },
+    { "auras",            "AURAS" },
+    { "castbars",         "CAST BARS" },
+    { "utility",          "UTILITY BAR" },
+    { "special",          "SPECIAL" },
 }
 
 for index, info
@@ -4831,6 +5680,27 @@ local function RefreshConfig()
 
     for _, control
     in pairs(MinimapControls) do
+        if control.Refresh then
+            control:Refresh()
+        end
+    end
+
+    for _, control
+    in pairs(ObjectiveTrackerControls) do
+        if control.Refresh then
+            control:Refresh()
+        end
+    end
+
+    for _, control
+    in pairs(LootControls) do
+        if control.Refresh then
+            control:Refresh()
+        end
+    end
+
+    for _, control
+    in pairs(LootNotificationControls) do
         if control.Refresh then
             control:Refresh()
         end

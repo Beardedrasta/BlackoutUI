@@ -134,6 +134,44 @@ local function SetBorder(
     end
 end
 
+local function HideBlizzardTooltipArt(tooltip)
+    if not tooltip then return end
+
+    if tooltip.NineSlice then
+        tooltip.NineSlice:SetAlpha(0)
+    end
+
+    local regions = {
+        tooltip.Background, tooltip.Border, tooltip.Center,
+        tooltip.TopEdge, tooltip.BottomEdge, tooltip.LeftEdge, tooltip.RightEdge,
+        tooltip.TopLeftCorner, tooltip.TopRightCorner,
+        tooltip.BottomLeftCorner, tooltip.BottomRightCorner,
+    }
+
+    for _, region in ipairs(regions) do
+        if region and region.SetAlpha then
+            region:SetAlpha(0)
+        end
+    end
+
+    local name = tooltip:GetName()
+    if name then
+        local suffixes = {
+            "Background", "Border", "Center",
+            "TopEdge", "BottomEdge", "LeftEdge", "RightEdge",
+            "TopLeftCorner", "TopRightCorner",
+            "BottomLeftCorner", "BottomRightCorner",
+        }
+
+        for _, suffix in ipairs(suffixes) do
+            local region = _G[name .. suffix]
+            if region and region.SetAlpha then
+                region:SetAlpha(0)
+            end
+        end
+    end
+end
+
 local function ApplyBaseStyle(tooltip)
     local db = GetConfig()
 
@@ -143,6 +181,7 @@ local function ApplyBaseStyle(tooltip)
     end
 
     EnsureBackdrop(tooltip)
+    HideBlizzardTooltipArt(tooltip)
 
     tooltip:SetScale(
         db.scale or 1
@@ -292,6 +331,7 @@ local function StyleTooltip(tooltip)
         "OnShow",
         function(self)
             ApplyBaseStyle(self)
+            HideBlizzardTooltipArt(self)
 
             C_Timer.After(
                 0,

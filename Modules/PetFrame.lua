@@ -40,6 +40,33 @@ PetFrame:SetPoint(
 PetFrame:SetFrameStrata("MEDIUM")
 
 --------------------------------------------------
+-- HIDE BLIZZARD PET FRAME
+--------------------------------------------------
+
+local function HideBlizzardPetFrame()
+    local blizzardPetFrame = _G.PetFrame
+
+    if blizzardPetFrame
+        and blizzardPetFrame ~= PetFrame then
+        blizzardPetFrame:UnregisterAllEvents()
+        blizzardPetFrame:Hide()
+
+        if not blizzardPetFrame.BlackoutUIHidden then
+            blizzardPetFrame.BlackoutUIHidden = true
+            hooksecurefunc(
+                blizzardPetFrame,
+                "Show",
+                function(self)
+                    if self ~= PetFrame then
+                        self:Hide()
+                    end
+                end
+            )
+        end
+    end
+end
+
+--------------------------------------------------
 -- UNIT BEHAVIOR
 --------------------------------------------------
 
@@ -812,10 +839,237 @@ local function UpdatePower()
 end
 
 --------------------------------------------------
+-- PET AURAS
+--------------------------------------------------
+
+local AuraHolder =
+    CreateFrame(
+        "Frame",
+        nil,
+        PetFrame
+    )
+
+AuraHolder:SetPoint(
+    "TOPLEFT",
+    PetFrame,
+    "BOTTOMLEFT",
+    0,
+    -4
+)
+
+AuraHolder:SetPoint(
+    "TOPRIGHT",
+    PetFrame,
+    "BOTTOMRIGHT",
+    0,
+    -4
+)
+
+AuraHolder:SetHeight(36)
+
+local BuffIcons = {}
+local DebuffIcons = {}
+
+local function CreateAuraIcon(parent)
+    local button =
+        CreateFrame(
+            "Frame",
+            nil,
+            parent,
+            "BackdropTemplate"
+        )
+
+    button:SetBackdrop({
+        bgFile = "Interface\\Buttons\\WHITE8X8",
+        edgeFile = "Interface\\Buttons\\WHITE8X8",
+        edgeSize = 1,
+    })
+
+    button:SetBackdropColor(0.02, 0.02, 0.02, 1)
+    button:SetBackdropBorderColor(0.12, 0.12, 0.12, 1)
+
+    local icon =
+        button:CreateTexture(
+            nil,
+            "ARTWORK"
+        )
+
+    icon:SetPoint("TOPLEFT", 1, -1)
+    icon:SetPoint("BOTTOMRIGHT", -1, 1)
+    icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+    button.Icon = icon
+
+    local count =
+        BlackoutUI:CreateFont(
+            button,
+            8
+        )
+
+    count:SetPoint(
+        "BOTTOMRIGHT",
+        button,
+        "BOTTOMRIGHT",
+        -1,
+        1
+    )
+
+    button.Count = count
+    button:Hide()
+
+    return button
+end
+
+for i = 1, 4 do
+    BuffIcons[i] =
+        CreateAuraIcon(AuraHolder)
+
+    DebuffIcons[i] =
+        CreateAuraIcon(AuraHolder)
+end
+
+local function ReadAura(index, filter)
+    if C_UnitAuras
+        and C_UnitAuras.GetAuraDataByIndex then
+        local aura =
+            C_UnitAuras.GetAuraDataByIndex(
+                "pet",
+                index,
+                filter
+            )
+
+        if aura then
+            return aura.icon,
+                aura.applications or 0
+        end
+
+        return nil
+    end
+
+    if UnitAura then
+        local name,
+        icon,
+        count =
+            UnitAura(
+                "pet",
+                index,
+                filter
+            )
+
+        if name then
+            return icon, count or 0
+        end
+    end
+
+    return nil
+end
+
+local function UpdateAuraRow(
+    icons,
+    filter,
+    maxIcons,
+    fromRight,
+    size
+)
+    for i = 1, 4 do
+        icons[i]:Hide()
+    end
+
+    local shown = 0
+
+    for auraIndex = 1, 40 do
+        if shown >= maxIcons then
+            break
+        end
+
+        local icon, count =
+            ReadAura(
+                auraIndex,
+                filter
+            )
+
+        if not icon then
+            break
+        end
+
+        shown = shown + 1
+
+        local button = icons[shown]
+        button:SetSize(size, size)
+        button.Icon:SetTexture(icon)
+
+        if count and count > 1 then
+            button.Count:SetText(count)
+        else
+            button.Count:SetText("")
+        end
+
+        button:ClearAllPoints()
+
+        if fromRight then
+            button:SetPoint(
+                "TOPRIGHT",
+                AuraHolder,
+                "TOPRIGHT",
+                -((shown - 1) * (size + 3)),
+                0
+            )
+        else
+            button:SetPoint(
+                "TOPLEFT",
+                AuraHolder,
+                "TOPLEFT",
+                ((shown - 1) * (size + 3)),
+                0
+            )
+        end
+
+        button:Show()
+    end
+end
+
+local function UpdatePetAuras()
+    local c =
+        BlackoutUIDB
+        and BlackoutUIDB.Config
+        and BlackoutUIDB.Config.UnitFrames
+        and BlackoutUIDB.Config.UnitFrames.pet
+
+    if not c
+        or c.showPetAuras == false
+        or not UnitExists("pet") then
+        AuraHolder:Hide()
+        return
+    end
+
+    AuraHolder:Show()
+
+    local size =
+        c.auraIconSize or 16
+
+    UpdateAuraRow(
+        BuffIcons,
+        "HELPFUL",
+        math.min(c.maxPetBuffs or 4, 4),
+        false,
+        size
+    )
+
+    UpdateAuraRow(
+        DebuffIcons,
+        "HARMFUL",
+        math.min(c.maxPetDebuffs or 4, 4),
+        true,
+        size
+    )
+end
+
+--------------------------------------------------
 -- UPDATE EVERYTHING
 --------------------------------------------------
 
 local function UpdateAll()
+    HideBlizzardPetFrame()
+
     if not UnitExists("pet") then
         PetFrame:Hide()
         return
@@ -839,6 +1093,7 @@ local function UpdateAll()
     UpdateClassColor()
     UpdateHealth()
     UpdatePower()
+    UpdatePetAuras()
 end
 
 --------------------------------------------------
@@ -881,6 +1136,10 @@ PetFrame:RegisterEvent(
     "UNIT_LEVEL"
 )
 
+PetFrame:RegisterEvent(
+    "UNIT_AURA"
+)
+
 --------------------------------------------------
 -- EVENT HANDLER
 --------------------------------------------------
@@ -891,6 +1150,15 @@ PetFrame:SetScript(
         if event == "PLAYER_ENTERING_WORLD"
             or event == "PET_UI_UPDATE" then
             UpdateAll()
+
+            C_Timer.After(
+                0.25,
+                function()
+                    HideBlizzardPetFrame()
+                    UpdateAll()
+                end
+            )
+
             return
         end
 
@@ -906,6 +1174,13 @@ PetFrame:SetScript(
         if event ==
             "UNIT_LEVEL" then
             UpdateLevel()
+            return
+        end
+
+        if event == "UNIT_AURA" then
+            if unit == "pet" then
+                UpdatePetAuras()
+            end
             return
         end
 
@@ -928,6 +1203,34 @@ PetFrame:SetScript(
     end
 )
 
+
+--------------------------------------------------
+-- TOOLTIP
+--------------------------------------------------
+
+PetFrame:SetScript(
+    "OnEnter",
+    function(self)
+        if not UnitExists("pet") then
+            return
+        end
+
+        GameTooltip_SetDefaultAnchor(
+            GameTooltip,
+            self
+        )
+
+        GameTooltip:SetUnit("pet")
+        GameTooltip:Show()
+    end
+)
+
+PetFrame:SetScript(
+    "OnLeave",
+    function()
+        GameTooltip:Hide()
+    end
+)
 
 --------------------------------------------------
 -- CONFIG API
@@ -961,6 +1264,10 @@ local function GetPetConfig()
     if c.showHealthPercent == nil then c.showHealthPercent = true end
     if c.showPowerValue == nil then c.showPowerValue = true end
     if c.showPowerBar == nil then c.showPowerBar = true end
+    if c.showPetAuras == nil then c.showPetAuras = true end
+    if c.auraIconSize == nil then c.auraIconSize = 16 end
+    if c.maxPetBuffs == nil then c.maxPetBuffs = 4 end
+    if c.maxPetDebuffs == nil then c.maxPetDebuffs = 4 end
     if c.healthValueSize == nil then c.healthValueSize = 12 end
     if c.healthPercentSize == nil then c.healthPercentSize = 14 end
     if c.powerLabelSize == nil then c.powerLabelSize = 9 end
@@ -984,7 +1291,18 @@ function BlackoutUI.PetFrame:ApplyConfig()
 
     local c = GetPetConfig()
 
-    PetFrame:SetSize(c.width, c.height)
+    -- The Pet Frame is a stacked full-frame layout.
+    -- Keep its total height synchronized with the three configured sections
+    -- instead of allowing the outer frame and bars to disagree.
+    local totalHeight =
+        c.headerHeight
+        + c.healthHeight
+        + (c.showPowerBar and c.powerHeight or 0)
+        + (c.showPowerBar and 12 or 9)
+
+    c.height = totalHeight
+
+    PetFrame:SetSize(c.width, totalHeight)
     PetFrame:SetScale(c.scale)
 
     Header:SetHeight(c.headerHeight)
@@ -999,6 +1317,19 @@ function BlackoutUI.PetFrame:ApplyConfig()
     SetFontSize(PowerLabel, c.powerLabelSize)
     SetFontSize(PowerValue, c.powerValueSize)
 
+    -- Keep the two health readouts balanced around the middle of the bar.
+    HealthValue:ClearAllPoints()
+    HealthPercent:ClearAllPoints()
+
+    if c.showHealthValue and c.showHealthPercent then
+        HealthValue:SetPoint("RIGHT", HealthBar, "CENTER", -5, 0)
+        HealthPercent:SetPoint("LEFT", HealthBar, "CENTER", 5, 0)
+    elseif c.showHealthValue then
+        HealthValue:SetPoint("CENTER", HealthBar, "CENTER", 0, 0)
+    elseif c.showHealthPercent then
+        HealthPercent:SetPoint("CENTER", HealthBar, "CENTER", 0, 0)
+    end
+
     NameText:SetShown(c.showName)
     LevelText:SetShown(c.showLevel)
     HealthValue:SetShown(c.showHealthValue)
@@ -1006,6 +1337,8 @@ function BlackoutUI.PetFrame:ApplyConfig()
     PowerLabel:SetShown(c.showPowerLabel)
     PowerValue:SetShown(c.showPowerValue)
     PowerContainer:SetShown(c.showPowerBar)
+    AuraHolder:SetShown(c.showPetAuras and UnitExists("pet"))
+    UpdatePetAuras()
 
     PetFrame:SetShown(
         c.enabled and UnitExists("pet")
